@@ -1,0 +1,244 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* HSL Color System - Light Medical Blue Theme */
+  --primary-hue: 210;
+  --accent-hue: 195;
+  
+  /* Colors */
+  --bg-dark: #f8fafc; /* Very light slate gray/white */
+  --bg-card: rgba(255, 255, 255, 0.85); /* Pure white glass */
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  
+  --primary: hsl(var(--primary-hue), 90%, 50%); /* Vibrant medical blue */
+  --primary-glow: rgba(0, 102, 204, 0.15);
+  --accent: hsl(var(--accent-hue), 95%, 42%); /* Cyan/teal medical accent */
+  --accent-glow: rgba(0, 180, 216, 0.15);
+  
+  --border-light: rgba(0, 102, 204, 0.12);
+  --border-glow: rgba(0, 180, 216, 0.4);
+  
+  --text-primary: #0f172a; /* Dark navy slate */
+  --text-secondary: #475569; /* Slate gray */
+  --text-muted: #64748b;
+  
+  /* Status Colors (slightly modified for light background readability) */
+  --red: #ef4444;
+  --yellow: #d97706; /* Darker yellow for contrast */
+  --green: #059669; /* Darker green for contrast */
+  --blue: #2563eb;
+  --red-glow: rgba(239, 68, 68, 0.08);
+  --yellow-glow: rgba(217, 119, 6, 0.08);
+  --green-glow: rgba(5, 150, 105, 0.08);
+  --blue-glow: rgba(37, 99, 235, 0.08);
+  
+  /* UI Metrics */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --font-family: 'Prompt', 'Inter', system-ui, -apple-system, sans-serif;
+  
+  --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-smooth: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0, 102, 204, 0.06) 0%, transparent 40%),
+    linear-gradient(rgba(0, 102, 204, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 102, 204, 0.02) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-attachment: fixed;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 102, 204, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 102, 204, 0.3);
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 30px rgba(0, 102, 204, 0.04);
+  transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth), transform var(--transition-smooth);
+}
+
+.glass-panel:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 15px 40px rgba(0, 180, 216, 0.08);
+}
+
+/* EKG Wave Animation Background */
+.ekg-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.15;
+}
+
+/* Inputs & Form Controls */
+input, select, textarea {
+  width: 100%;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 102, 204, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 0.95rem;
+  transition: all var(--transition-fast);
+  outline: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+  box-shadow: 0 0 15px rgba(0, 102, 204, 0.12);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+/* Buttons */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 102, 204, 0.25);
+  transition: all var(--transition-fast);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 180, 216, 0.35);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 102, 204, 0.15);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-secondary:hover {
+  background: #f8fafc;
+  border-color: var(--primary);
+}
+
+/* Float Animation */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+
+.float-animation {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Pulse Glow Animation */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 10px rgba(0, 102, 204, 0.05); }
+  50% { box-shadow: 0 0 25px rgba(0, 180, 216, 0.15); }
+  100% { box-shadow: 0 0 10px rgba(0, 102, 204, 0.05); }
+}
+
+.pulse-glow {
+  animation: pulseGlow 3s infinite alternate;
+}
+
+/* Custom Header Badge */
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(0, 180, 216, 0.08);
+  border: 1px solid rgba(0, 180, 216, 0.2);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ESI Badge colors */
+.badge-esi {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-esi.esi-1 { background: var(--red-glow); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.2); }
+.badge-esi.esi-2 { background: var(--yellow-glow); color: var(--yellow); border: 1px solid rgba(217, 119, 6, 0.2); }
+.badge-esi.esi-3 { background: var(--green-glow); color: var(--green); border: 1px solid rgba(5, 150, 105, 0.2); }
+.badge-esi.esi-child { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(37, 99, 235, 0.2); }
