@@ -252,18 +252,17 @@ function importFirestoreLogs() {
       // ล้างข้อมูลหน้าเดิมออกทั้งหมด (รองรับการทำข้อมูลให้เป็นปัจจุบันเมื่อมีการลบเคส)
       userSheet.clear();
       
-      // แสดงข้อมูลส่วนตัวนักศึกษาด้านบนสุด
-      userSheet.appendRow([
+      // แสดงข้อมูลส่วนตัวนักศึกษาด้านบนสุด (ใช้ setValues แทน appendRow เพื่อเลี่ยงการใช้ appendRow แบบแถวว่างที่ทำให้เกิด Exception)
+      userSheet.getRange(1, 1, 1, 5).setValues([[
         `ผู้ฝึกปฏิบัติ: ${student.fullName}`, 
         `รหัสประจำตัว: ${formattedId}`, 
         `ตำแหน่ง: ${student.position}`,
         `แหล่งฝึกรอบที่ 1: ${venue1}`,
         `แหล่งฝึกรอบที่ 2: ${venue2}`
-      ]);
-      userSheet.getRange(1, 1, 1, 5).setFontWeight("bold").setBackground("#f1f5f9");
+      ]]).setFontWeight("bold").setBackground("#f1f5f9");
       
-      userSheet.appendRow([]); // บรรทัดว่างคั่นกลาง
-      userSheet.appendRow(headers); // หัวตารางหลัก (แถวที่ 3)
+      // ตั้งค่าหัวข้อหลักพรีเมี่ยมที่แถวที่ 3
+      userSheet.getRange(3, 1, 1, headers.length).setValues([headers]);
       
       // ดึงเคสของคนๆ นี้มาใส่ในตาราง
       const userLogs = logsByUser[uid] || [];
