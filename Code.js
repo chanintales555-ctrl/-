@@ -1,4 +1,4 @@
-// สคริปต์ดึงข้อมูลจาก Cloud Firestore ลงสู่ Google Sheets
+// สคริปต์ดึงข้อมูลจาก Cloud Firestore ลงสู่ Google Sheets แยกชีตรายคน
 // ผู้พัฒนา: เจฟ (AI Assistant)
 
 const PROJECT_ID = "enp4-logbook";
@@ -165,13 +165,37 @@ function onOpen() {
 
 // ฟังก์ชันหลักดึงข้อมูล
 function importFirestoreLogs() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 1. ดึงข้อมูลดิบจาก API ของ Firestore
-  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000`;
+  // 1. ดึงข้อมูลรายชื่อและแหล่งฝึกของนักศึกษาจาก Firestore (users collection)
+  const usersUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?pageSize=1000`;
+  const userProfiles = {};
   
   try {
-    const response = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    const usersResponse = UrlFetchApp.fetch(usersUrl, { muteHttpExceptions: true });
+    if (usersResponse.getResponseCode() === 200) {
+      const usersJson = JSON.parse(usersResponse.getContentText());
+      if (usersJson.documents) {
+        usersJson.documents.forEach(doc => {
+          const fields = doc.fields || {};
+          const uid = fields.id ? (fields.id.stringValue || String(fields.id.integerValue || "")) : "";
+          const venue1 = fields.venue1 ? fields.venue1.stringValue : "-";
+          const venue2 = fields.venue2 ? fields.venue2.stringValue : "-";
+          if (uid) {
+            userProfiles[uid] = { venue1, venue2 };
+          }
+        });
+      }
+    }
+  } catch (e) {
+    Logger.log("Failed to fetch user profiles: " + e.toString());
+  }
+
+  // 2. ดึงข้อมูลบันทึกหัตถการ/เคสทั้งหมดจาก Firestore (logs collection)
+  const logsUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000`;
+  
+  try {
+    const response = UrlFetchApp.fetch(logsUrl, { muteHttpExceptions: true });
     const responseCode = response.getResponseCode();
     
     if (responseCode !== 200) {
@@ -180,23 +204,25 @@ function importFirestoreLogs() {
     }
     
     const json = JSON.parse(response.getContentText());
+    const documents = json.documents || [];
     
-    if (!json.documents || json.documents.length === 0) {
-      Browser.msgBox("ℹ️ ไม่พบข้อมูลการกรอกเคสในระบบในขณะนี้");
-      return;
-    }
+    // จัดกลุ่มข้อมูล logs ตามรายชื่อนักศึกษา (userId)
+    const logsByUser = {};
+    Object.keys(STUDENT_MAP).forEach(uid => {
+      logsByUser[uid] = [];
+    });
     
-    // 2. เคลียร์ข้อมูลหน้าเก่าออกและจัดเตรียมตารางใหม่
-    sheet.clear();
+    documents.forEach(doc => {
+      const fields = doc.fields || {};
+      const userId = fields.userId ? (fields.userId.stringValue || String(fields.userId.integerValue || "")) : "";
+      if (userId && logsByUser[userId] !== undefined) {
+        logsByUser[userId].push(doc);
+      }
+    });
     
-    // ตั้งค่าหัวข้อหลักพรีเมี่ยม
+    // หัวข้อหลักสำหรับตารางรายงานของแต่ละคน
     const headers = [
       "วันเวลาที่บันทึก",
-      "รหัสผู้เข้าอบรม",
-      "ชื่อ-สกุลผู้ส่งงาน",
-      "ตำแหน่ง",
-      "แหล่งฝึกรอบที่ 1",
-      "แหล่งฝึกรอบที่ 2",
       "หมวดเคสย่อย",
       "ชื่อ-สกุล ผู้ป่วย",
       "อายุ (ปี)",
@@ -205,92 +231,115 @@ function importFirestoreLogs() {
       "ชื่อผู้นิเทศ (ผู้ประเมิน)"
     ];
     
-    sheet.appendRow(headers);
-    
-    // 3. วนลูปแปลข้อมูลดิบใส่ในตาราง
-    const rows = [];
-    json.documents.forEach(doc => {
-      const fields = doc.fields || {};
+    // 3. วนลูปสร้าง/อัปเดตชีตของแต่ละคน (คนละ 1 Tab)
+    Object.keys(STUDENT_MAP).forEach(uid => {
+      const student = STUDENT_MAP[uid];
+      const profile = userProfiles[uid] || {};
+      const venue1 = profile.venue1 || "-";
+      const venue2 = profile.venue2 || "-";
       
-      const userId = fields.userId ? fields.userId.stringValue : "";
-      const subtopicId = fields.subtopicId ? fields.subtopicId.stringValue : "";
-      const timestamp = fields.timestamp ? fields.timestamp.stringValue : "";
+      const formattedId = '256904000' + String(uid).padStart(2, '0');
+      // ตัดชื่อเล่น/ชื่อจริงมาแสดงเป็นชื่อ Tab เพื่อไม่ให้ยาวเกินไป (เช่น 25690400001 - กลิ่นสุคนธ์)
+      const firstName = student.fullName.replace("นางสาว", "").replace("นาง", "").replace("นาย", "").split(" ")[0].trim();
+      const sheetName = `${formattedId} - ${firstName}`;
       
-      // ดึงข้อมูลใน nested data object
-      const dataMap = fields.data && fields.data.mapValue ? fields.data.mapValue.fields : {};
-      
-      const patientName = dataMap.patientName ? dataMap.patientName.stringValue : "";
-      const age = dataMap.age ? dataMap.age.stringValue : "";
-      const diagnosis = dataMap.diagnosis ? dataMap.diagnosis.stringValue : "";
-      const management = dataMap.management ? dataMap.management.stringValue : "";
-      const outcome = dataMap.outcome ? dataMap.outcome.stringValue : "";
-      const supervisor = dataMap.supervisor ? dataMap.supervisor.stringValue : "";
-      
-      // แปลงข้อมูลนักศึกษาจากรหัส
-      const student = STUDENT_MAP[userId] || { fullName: "-", position: "-" };
-      const formattedId = '256904000' + String(userId).padStart(2, '0');
-      
-      // ดึงข้อมูลผู้ใช้จาก Firestore หรือระบุค่าเริ่มต้น
-      const userVenue1 = student.venue1 || "-";
-      const userVenue2 = student.venue2 || "-";
-      
-      // จัดการแปลงเวลา (Timezone + จัดรูปแบบ)
-      let formattedTime = timestamp;
-      if (timestamp) {
-        try {
-          const dateObj = new Date(timestamp);
-          // แสดงผลแบบเวลาไทย
-          formattedTime = Utilities.formatDate(dateObj, "GMT+7", "dd/MM/yyyy HH:mm:ss");
-        } catch(e) {}
+      // ค้นหาชีตเดิม ถ้าไม่มีให้สร้างใหม่
+      let userSheet = ss.getSheetByName(sheetName);
+      if (!userSheet) {
+        userSheet = ss.insertSheet(sheetName);
       }
       
-      rows.push([
-        formattedTime,
-        formattedId,
-        student.fullName,
-        student.position,
-        userVenue1,
-        userVenue2,
-        subtopicId,
-        patientName,
-        age,
-        diagnosis,
-        management + " \n➔ " + outcome,
-        supervisor
+      // ล้างข้อมูลหน้าเดิมออกทั้งหมด (รองรับการทำข้อมูลให้เป็นปัจจุบันเมื่อมีการลบเคส)
+      userSheet.clear();
+      
+      // แสดงข้อมูลส่วนตัวนักศึกษาด้านบนสุด
+      userSheet.appendRow([
+        `ผู้ฝึกปฏิบัติ: ${student.fullName}`, 
+        `รหัสประจำตัว: ${formattedId}`, 
+        `ตำแหน่ง: ${student.position}`,
+        `แหล่งฝึกรอบที่ 1: ${venue1}`,
+        `แหล่งฝึกรอบที่ 2: ${venue2}`
       ]);
+      userSheet.getRange(1, 1, 1, 5).setFontWeight("bold").setBackground("#f1f5f9");
+      
+      userSheet.appendRow([]); // บรรทัดว่างคั่นกลาง
+      userSheet.appendRow(headers); // หัวตารางหลัก (แถวที่ 3)
+      
+      // ดึงเคสของคนๆ นี้มาใส่ในตาราง
+      const userLogs = logsByUser[uid] || [];
+      const rows = [];
+      
+      userLogs.forEach(doc => {
+        const fields = doc.fields || {};
+        const subtopicId = fields.subtopicId ? fields.subtopicId.stringValue : "";
+        const timestamp = fields.timestamp ? fields.timestamp.stringValue : "";
+        
+        const dataMap = fields.data && fields.data.mapValue ? fields.data.mapValue.fields : {};
+        const patientName = dataMap.patientName ? dataMap.patientName.stringValue : "";
+        const age = dataMap.age ? dataMap.age.stringValue : "";
+        const diagnosis = dataMap.diagnosis ? dataMap.diagnosis.stringValue : "";
+        const management = dataMap.management ? dataMap.management.stringValue : "";
+        const outcome = dataMap.outcome ? dataMap.outcome.stringValue : "";
+        const supervisor = dataMap.supervisor ? dataMap.supervisor.stringValue : "";
+        
+        let formattedTime = timestamp;
+        if (timestamp) {
+          try {
+            const dateObj = new Date(timestamp);
+            formattedTime = Utilities.formatDate(dateObj, "GMT+7", "dd/MM/yyyy HH:mm:ss");
+          } catch(e) {}
+        }
+        
+        rows.push([
+          formattedTime,
+          subtopicId,
+          patientName,
+          age,
+          diagnosis,
+          management + " \n➔ " + outcome,
+          supervisor
+        ]);
+      });
+      
+      // เขียนตารางแบบกลุ่มลงชีต
+      if (rows.length > 0) {
+        userSheet.getRange(4, 1, rows.length, headers.length).setValues(rows);
+      }
+      
+      // จัดรูปแบบหัวข้อตารางสีฟ้าพรีเมี่ยม
+      const headerRange = userSheet.getRange(3, 1, 1, headers.length);
+      headerRange.setBackground("#0066cc")
+                 .setFontColor("#ffffff")
+                 .setFontWeight("bold")
+                 .setHorizontalAlignment("center");
+                 
+      // จัดแต่งฟอนต์ Prompt และเส้นขอบตาราง
+      const totalRange = userSheet.getRange(3, 1, rows.length + 1, headers.length);
+      totalRange.setFontFamily("Prompt")
+                .setBorder(true, true, true, true, true, true, "#e2e8f0", SpreadsheetApp.BorderStyle.SOLID)
+                .setVerticalAlignment("middle");
+                
+      // จัดตำแหน่งแนวตั้งแถวข้อมูล
+      if (rows.length > 0) {
+        userSheet.getRange(4, 1, rows.length, 2).setHorizontalAlignment("center"); // เวลา และ หมวดเคส
+        userSheet.getRange(4, 4, rows.length, 1).setHorizontalAlignment("center"); // อายุ
+      }
+      
+      // ออโต้ขยายคอลัมน์อัตโนมัติ
+      for (let col = 1; col <= headers.length; col++) {
+        userSheet.autoResizeColumn(col);
+      }
     });
     
-    // เขียนแถวทั้งหมดลงชีตทีเดียวเพื่อประสิทธิภาพสูง
-    if (rows.length > 0) {
-      sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+    // ลบหน้าชีตว่างเริ่มต้น (Sheet1 หรือ ชีต1) ออกเพื่อความเป็นระเบียบ
+    const defaultSheet = ss.getSheetByName("Sheet1") || ss.getSheetByName("ชีต1");
+    if (defaultSheet && ss.getSheets().length > 1) {
+      ss.deleteSheet(defaultSheet);
     }
     
-    // 4. จัดรูปแบบหน้าตาตารางให้สวยงามน่าใช้ (Theme สีฟ้าพรีเมี่ยม)
-    const headerRange = sheet.getRange(1, 1, 1, headers.length);
-    headerRange.setBackground("#0066cc") // สีฟ้าหลักของธีมเรา
-               .setFontColor("#ffffff")
-               .setFontWeight("bold")
-               .setHorizontalAlignment("center");
-               
-    // ตีเส้นขอบและจัดตำแหน่ง
-    const totalRange = sheet.getRange(1, 1, rows.length + 1, headers.length);
-    totalRange.setFontFamily("Prompt")
-              .setBorder(true, true, true, true, true, true, "#e2e8f0", SpreadsheetApp.BorderStyle.SOLID)
-              .setVerticalAlignment("middle");
-              
-    // จัดแนวข้อความหัวข้อสถิติกลางกระดาษ
-    sheet.getRange(2, 1, rows.length, 2).setHorizontalAlignment("center"); // เวลา และ รหัส
-    sheet.getRange(2, 7, rows.length, 1).setHorizontalAlignment("center"); // หมวดเคส
-    sheet.getRange(2, 9, rows.length, 1).setHorizontalAlignment("center"); // อายุ
-    
-    // ออโต้ขยายขนาดคอลัมน์อัตโนมัติ
-    for (let col = 1; col <= headers.length; col++) {
-      sheet.autoResizeColumn(col);
-    }
-    
-    Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น ดึงข้อมูลเคสมาแล้วทั้งหมด " + rows.length + " รายการครับ!");
+    Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น! จัดกลุ่มแยกรายชื่อชีตส่วนตัวนักศึกษาพร้อมอัปเดตการลบข้อมูลล่าสุดเรียบร้อยครับ");
     
   } catch(e) {
-    Browser.msgBox("❌ เกิดข้อผิดพลาดในการโหลดข้อมูล: " + e.toString());
+    Browser.msgBox("❌ เกิดข้อผิดพลาดในการดึงข้อมูล: " + e.toString());
   }
 }
