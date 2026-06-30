@@ -28,5 +28,7 @@ dist-ssr
 .env.local
 .env.*.local
 .firebase
+.clasp.json
+
 
 
