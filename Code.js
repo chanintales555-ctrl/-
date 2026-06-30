@@ -276,10 +276,16 @@ function importFirestoreLogs() {
         const dataMap = fields.data && fields.data.mapValue ? fields.data.mapValue.fields : {};
         const patientName = dataMap.patientName ? dataMap.patientName.stringValue : "";
         const age = dataMap.age ? dataMap.age.stringValue : "";
-        const diagnosis = dataMap.diagnosis ? dataMap.diagnosis.stringValue : "";
-        const management = dataMap.management ? dataMap.management.stringValue : "";
+        
+        // แผนผังแมปชื่อฟิลด์ให้ตรงตามแต่ละฟอร์มของ React
+        const symptoms = dataMap.symptoms ? dataMap.symptoms.stringValue : "";
+        
+        // รวมฟิลด์รายละเอียดตามประเภทหัวข้อ (TriageReason หรือ Management)
+        const details = (dataMap.management ? dataMap.management.stringValue : "") || 
+                        (dataMap.triageReason ? dataMap.triageReason.stringValue : "");
+                        
         const outcome = dataMap.outcome ? dataMap.outcome.stringValue : "";
-        const supervisor = dataMap.supervisor ? dataMap.supervisor.stringValue : "";
+        const supervisorName = dataMap.supervisorName ? dataMap.supervisorName.stringValue : "";
         
         let formattedTime = timestamp;
         if (timestamp) {
@@ -289,14 +295,17 @@ function importFirestoreLogs() {
           } catch(e) {}
         }
         
+        // นำรายละเอียดมาประมวลผลต่อท้ายผลลัพธ์
+        const outcomeDetail = details ? (details + " \n➔ " + outcome) : outcome;
+        
         rows.push([
           formattedTime,
           subtopicId,
           patientName,
           age,
-          diagnosis,
-          management + " \n➔ " + outcome,
-          supervisor
+          symptoms,
+          outcomeDetail,
+          supervisorName
         ]);
       });
       
