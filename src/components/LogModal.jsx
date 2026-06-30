@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { getFieldsForType } from '../data/topics';
-import { X, Trash2, Plus, CheckCircle } from 'lucide-react';
+import { X, Trash2, Plus, CheckCircle, Edit3 } from 'lucide-react';
 
-const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
+const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose }) => {
   const subtopicLogs = logs.filter(log => log.subtopicId === subtopic.id);
   const fields = getFieldsForType(subtopic.type, subtopic.id);
 
@@ -13,11 +13,29 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
   }, {});
 
   const [formData, setFormData] = useState(initialFormState);
+  const [editingLogId, setEditingLogId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(subtopicLogs.length < subtopic.target);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleStartEdit = (log) => {
+    setEditingLogId(log.id);
+    // Populate form with existing data
+    const editData = {};
+    fields.forEach(field => {
+      editData[field.name] = log.data?.[field.name] || '';
+    });
+    setFormData(editData);
+    setShowAddForm(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLogId(null);
+    setFormData(initialFormState);
+    setShowAddForm(subtopicLogs.length < subtopic.target);
   };
 
   const handleSubmit = (e) => {
@@ -30,11 +48,16 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
       return;
     }
 
-    onSaveLog({
-      subtopicId: subtopic.id,
-      topicId: subtopic.id.split('.')[0], // get main topic ID (e.g. "1" from "1.1")
-      data: formData
-    });
+    if (editingLogId) {
+      onUpdateLog(editingLogId, formData);
+      setEditingLogId(null);
+    } else {
+      onSaveLog({
+        subtopicId: subtopic.id,
+        topicId: subtopic.id.split('.')[0], // get main topic ID (e.g. "1" from "1.1")
+        data: formData
+      });
+    }
 
     // Reset Form
     setFormData(initialFormState);
@@ -135,38 +158,45 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
                 บันทึกแล้ว {subtopicLogs.length} <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 400 }}>จากเป้าหมายขั้นต่ำ {subtopic.target} เคส</span>
               </h4>
             </div>
-            {subtopicLogs.length >= subtopic.target ? (
+            {subtopicLogs.length >= subtopic.target && !editingLogId ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--green)', fontWeight: 600, fontSize: '0.9rem' }}>
                 <CheckCircle size={18} /> กรอกครบถ้วนตามเกณฑ์
               </div>
             ) : (
               <button 
-                onClick={() => setShowAddForm(true)}
+                onClick={() => {
+                  setEditingLogId(null);
+                  setFormData(initialFormState);
+                  setShowAddForm(true);
+                }}
                 className="btn-primary"
                 style={{ padding: '8px 16px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                disabled={editingLogId}
               >
                 <Plus size={14} /> เพิ่มบันทึกเคสใหม่
               </button>
             )}
           </div>
 
-          {/* Form to Add New Entry */}
+          {/* Form to Add / Edit Entry */}
           {showAddForm && (
             <div className="glass-panel" style={{
               padding: '24px',
               background: 'rgba(0, 102, 204, 0.01)',
-              borderColor: 'rgba(0, 180, 216, 0.25)'
+              borderColor: editingLogId ? 'rgba(0, 102, 204, 0.35)' : 'rgba(0, 180, 216, 0.25)',
+              boxShadow: editingLogId ? '0 4px 20px rgba(0, 102, 204, 0.05)' : 'none'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--primary)' }}>แบบฟอร์มเพิ่มข้อมูลการส่งงาน</h3>
-                {subtopicLogs.length > 0 && (
-                  <button 
-                    onClick={() => setShowAddForm(false)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}
-                  >
-                    ยกเลิก
-                  </button>
-                )}
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: editingLogId ? 'var(--primary)' : 'var(--primary)' }}>
+                  {editingLogId ? '✍️ แบบฟอร์มแก้ไขข้อมูลการส่งงาน' : '📝 แบบฟอร์มเพิ่มข้อมูลการส่งงาน'}
+                </h3>
+                <button 
+                  type="button"
+                  onClick={editingLogId ? handleCancelEdit : () => setShowAddForm(false)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}
+                >
+                  ยกเลิก
+                </button>
               </div>
 
               <form onSubmit={handleSubmit}>
@@ -229,9 +259,13 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
                   <button 
                     type="submit" 
                     className="btn-primary"
-                    style={{ padding: '10px 24px', fontSize: '0.85rem' }}
+                    style={{ 
+                      padding: '10px 24px', 
+                      fontSize: '0.85rem',
+                      background: editingLogId ? 'linear-gradient(135deg, var(--primary), #0284c7)' : 'var(--primary)'
+                    }}
                   >
-                    บันทึกรายการ
+                    {editingLogId ? 'บันทึกการแก้ไข' : 'บันทึกรายการ'}
                   </button>
                 </div>
               </form>
@@ -268,7 +302,7 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
                       {fields.map(f => (
                         <th key={f.name} style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{f.label}</th>
                       ))}
-                      <th style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>การจัดการ</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-secondary)', width: '120px' }}>การจัดการ</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -277,7 +311,8 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
                         key={log.id} 
                         style={{ 
                           borderBottom: '1px solid var(--border-light)',
-                          background: index % 2 === 0 ? 'transparent' : 'rgba(0, 102, 204, 0.01)'
+                          background: index % 2 === 0 ? 'transparent' : 'rgba(0, 102, 204, 0.01)',
+                          outline: editingLogId === log.id ? '2px solid rgba(0, 102, 204, 0.4)' : 'none'
                         }}
                       >
                         <td style={{ padding: '14px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>{index + 1}</td>
@@ -305,28 +340,55 @@ const LogModal = ({ subtopic, logs, onSaveLog, onDeleteLog, onClose }) => {
                           );
                         })}
                         <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                          <button
-                            onClick={() => handleDelete(log.id)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              cursor: 'pointer',
-                              padding: '6px',
-                              borderRadius: '4px',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                              e.currentTarget.style.color = 'var(--red)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = 'none';
-                              e.currentTarget.style.color = 'var(--text-muted)';
-                            }}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => handleStartEdit(log)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '6px',
+                                borderRadius: '4px',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(0, 102, 204, 0.08)';
+                                e.currentTarget.style.color = 'var(--primary)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'none';
+                                e.currentTarget.style.color = 'var(--text-muted)';
+                              }}
+                              title="แก้ไขรายการ"
+                            >
+                              <Edit3 size={15} />
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDelete(log.id)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                cursor: 'pointer',
+                                padding: '6px',
+                                borderRadius: '4px',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                                e.currentTarget.style.color = 'var(--red)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'none';
+                                e.currentTarget.style.color = 'var(--text-muted)';
+                              }}
+                              title="ลบรายการ"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

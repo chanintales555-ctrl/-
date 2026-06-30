@@ -129,6 +129,14 @@ const App = () => {
     }
   };
 
+  const handleUpdateLog = async (logId, updatedData) => {
+    if (!user) return;
+    const result = await dbService.updateLog(logId, { data: updatedData });
+    if (result) {
+      setLogs(prev => prev.map(log => log.id === logId ? { ...log, data: updatedData } : log));
+    }
+  };
+
   // Generate complete Demo Data for trainee verification
   const handleGenerateDemoData = async () => {
     if (!user) return;
@@ -295,6 +303,7 @@ const App = () => {
           subtopic={activeSubtopic}
           logs={logs}
           onSaveLog={handleSaveLog}
+          onUpdateLog={handleUpdateLog}
           onDeleteLog={handleDeleteLog}
           onClose={() => setActiveSubtopic(null)}
         />
