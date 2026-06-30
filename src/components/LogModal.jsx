@@ -41,10 +41,10 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Simple verification
-    const missingFields = fields.filter(f => f.required && !formData[f.name]);
-    if (missingFields.length > 0) {
-      alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วนครับ");
+    // ตรวจสอบว่ามีการกรอกข้อมูลอย่างน้อย 1 ช่อง (ไม่ปล่อยว่างทั้งหมด) เพื่อให้สามารถบันทึกร่างคร่าวๆ ไว้ก่อนได้
+    const hasAnyContent = Object.values(formData).some(val => val && String(val).trim() !== "");
+    if (!hasAnyContent) {
+      alert("กรุณากรอกข้อมูลอย่างน้อยหนึ่งช่องเพื่อบันทึกรายการครับ");
       return;
     }
 
@@ -220,7 +220,6 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                             name={field.name}
                             value={formData[field.name] || ''}
                             onChange={handleInputChange}
-                            required={field.required}
                             placeholder={field.placeholder}
                             rows={3}
                             style={{ border: '1px solid rgba(0, 102, 204, 0.15)', background: '#ffffff', color: 'var(--text-primary)' }}
@@ -230,7 +229,6 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                             name={field.name}
                             value={formData[field.name] || ''}
                             onChange={handleInputChange}
-                            required={field.required}
                             style={{ border: '1px solid rgba(0, 102, 204, 0.15)', background: '#ffffff', color: 'var(--text-primary)' }}
                           >
                             {field.options.map(opt => (
@@ -245,7 +243,6 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                             name={field.name}
                             value={formData[field.name] || ''}
                             onChange={handleInputChange}
-                            required={field.required}
                             placeholder={field.placeholder}
                             style={{ border: '1px solid rgba(0, 102, 204, 0.15)', background: '#ffffff', color: 'var(--text-primary)' }}
                           />
