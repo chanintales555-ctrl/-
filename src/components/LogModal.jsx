@@ -14,7 +14,7 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
 
   const [formData, setFormData] = useState(initialFormState);
   const [editingLogId, setEditingLogId] = useState(null);
-  const [isFormOpen, setIsFormOpen] = useState(subtopicLogs.length < subtopic.target);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
