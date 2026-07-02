@@ -1,4 +1,4 @@
-// สคริปต์ดึงข้อมูลจาก Cloud Firestore ลงสู่ Google Sheets แยกชีตรายคน
+// สคริปต์ดึงข้อมูลจาก Cloud Firestore ลงสู่ Google Sheets แยกชีตรายคนพร้อมแสดงลายเซ็น
 // ผู้พัฒนา: เจฟ (AI Assistant)
 
 const PROJECT_ID = "enp4-logbook";
@@ -220,7 +220,7 @@ function importFirestoreLogs() {
       }
     });
     
-    // หัวข้อหลักสำหรับตารางรายงานของแต่ละคน
+    // หัวข้อหลักสำหรับตารางรายงานของแต่ละคน (เพิ่มหัวข้อ ลายเซ็นผู้นิเทศ ในคอลัมน์ที่ 8)
     const headers = [
       "วันเวลาที่บันทึก",
       "หมวดเคสย่อย",
@@ -228,7 +228,8 @@ function importFirestoreLogs() {
       "อายุ (ปี)",
       "อาการ / การวินิจฉัย (Dx)",
       "ผลลัพธ์และบันทึกหลังทำหัตถการ",
-      "ชื่อผู้นิเทศ (ผู้ประเมิน)"
+      "ชื่อผู้นิเทศ (ผู้ประเมิน)",
+      "ลายเซ็นผู้นิเทศ"
     ];
     
     // 3. วนลูปสร้าง/อัปเดตชีตของแต่ละคน (คนละ 1 Tab)
@@ -251,6 +252,12 @@ function importFirestoreLogs() {
       
       // ล้างข้อมูลหน้าเดิมออกทั้งหมด (รองรับการทำข้อมูลให้เป็นปัจจุบันเมื่อมีการลบเคส)
       userSheet.clear();
+      
+      // ลบลายเซ็นภาพเดิมทั้งหมดที่เคยลอยอยู่ในชีตนี้ออกด้วย ป้องกันลายเซ็นซ้อนทับกัน
+      const oldImages = userSheet.getImages();
+      for (var i = 0; i < oldImages.length; i++) {
+        oldImages[i].remove();
+      }
       
       // แสดงข้อมูลส่วนตัวนักศึกษาด้านบนสุด
       userSheet.getRange(1, 1, 1, 5).setValues([[
@@ -305,13 +312,45 @@ function importFirestoreLogs() {
           age,
           symptoms,
           outcomeDetail,
-          supervisorName
+          supervisorName,
+          "" // ช่องวางรูปภาพลายเซ็น
         ]);
       });
       
       // เขียนตารางแบบกลุ่มลงชีต
       if (rows.length > 0) {
         userSheet.getRange(4, 1, rows.length, headers.length).setValues(rows);
+        
+        // วนลูปเพื่อวาดรูปลายเซ็นลอยในเซลล์คอลัมน์ H (คอลัมน์ที่ 8)
+        userLogs.forEach((doc, idx) => {
+          const docFields = doc.fields || {};
+          const docDataMap = docFields.data && docFields.data.mapValue ? docFields.data.mapValue.fields : {};
+          const supervisorSignature = docDataMap.supervisorSignature ? docDataMap.supervisorSignature.stringValue : "";
+          
+          const rowNum = 4 + idx;
+          
+          // ขยายความสูงของแถวข้อมูลให้สูงขึ้นเล็กน้อยเพื่อแสดงรูปภาพลายเซ็นได้ชัดเจน
+          userSheet.setRowHeight(rowNum, 40);
+          
+          if (supervisorSignature && supervisorSignature.indexOf("data:image/png;base64,") === 0) {
+            try {
+              const base64Data = supervisorSignature.split(",")[1];
+              const decoded = Utilities.base64Decode(base64Data);
+              const blob = Utilities.newBlob(decoded, 'image/png', 'sig_' + doc.id);
+              
+              // แทรกภาพลอยตัวเหนือกึ่งกลางเซลล์คอลัมน์ที่ 8 (คอลัมน์ H)
+              const img = userSheet.insertImage(blob, 8, rowNum);
+              
+              // ปรับขนาดภาพลายเซ็นให้พอดีและกึ่งกลางตาราง (สัดส่วน 80x30 พิกเซล)
+              img.setWidth(80).setHeight(30);
+              
+              // ขยับรูปเล็กน้อยเพื่อให้วางกึ่งกลางพอดี (Offset 10px จากขอบซ้าย และ 5px จากขอบบน)
+              img.setAnchorCellXOffset(10).setAnchorCellYOffset(5);
+            } catch(err) {
+              Logger.log("Failed to insert signature image for doc " + doc.id + ": " + err.toString());
+            }
+          }
+        });
       }
       
       // จัดรูปแบบหัวข้อตารางสีฟ้าพรีเมี่ยม
@@ -331,6 +370,7 @@ function importFirestoreLogs() {
       if (rows.length > 0) {
         userSheet.getRange(4, 1, rows.length, 2).setHorizontalAlignment("center"); // เวลา และ หมวดเคส
         userSheet.getRange(4, 4, rows.length, 1).setHorizontalAlignment("center"); // อายุ
+        userSheet.getRange(4, 8, rows.length, 1).setHorizontalAlignment("center"); // ลายเซ็น
       }
       
       // ออโต้ขยายคอลัมน์อัตโนมัติ
@@ -345,7 +385,7 @@ function importFirestoreLogs() {
       ss.deleteSheet(defaultSheet);
     }
     
-    Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น! จัดกลุ่มแยกรายชื่อชีตส่วนตัวนักศึกษาพร้อมอัปเดตการลบข้อมูลล่าสุดเรียบร้อยครับ");
+    Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น! จัดกลุ่มแยกรายชื่อชีตส่วนตัวนักศึกษาพร้อมแทรกลายเซ็นและลบข้อมูลล่าสุดเรียบร้อยครับ");
     
   } catch(e) {
     Browser.msgBox("❌ เกิดข้อผิดพลาดในการดึงข้อมูล: " + e.toString());

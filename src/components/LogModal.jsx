@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getFieldsForType } from '../data/topics';
 import { X, Trash2, Plus, CheckCircle, Edit3 } from 'lucide-react';
+import SignaturePad from './SignaturePad';
 
 const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose }) => {
   const subtopicLogs = logs.filter(log => log.subtopicId === subtopic.id);
@@ -11,10 +12,15 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
     acc[field.name] = field.type === 'select' ? (field.options[0]?.value || '') : '';
     return acc;
   }, {});
+  initialFormState.supervisorSignature = ''; // Add signature holder to initial state
 
   const [formData, setFormData] = useState(initialFormState);
   const [editingLogId, setEditingLogId] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // Signature Pad State
+  const [isSigPadOpen, setIsSigPadOpen] = useState(false);
+  const [sigPadTargetLogId, setSigPadTargetLogId] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -28,6 +34,7 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
     fields.forEach(field => {
       editData[field.name] = log.data?.[field.name] || '';
     });
+    editData.supervisorSignature = log.data?.supervisorSignature || '';
     setFormData(editData);
     setIsFormOpen(true); // Pop up the edit form modal
   };
@@ -70,6 +77,29 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
     }
   };
 
+  // Save signature callback from SignaturePad
+  const handleSaveSignature = (signatureDataUrl) => {
+    if (sigPadTargetLogId) {
+      // 1. Direct signature from the table row!
+      const targetLog = logs.find(l => l.id === sigPadTargetLogId);
+      if (targetLog) {
+        const updatedData = {
+          ...targetLog.data,
+          supervisorSignature: signatureDataUrl
+        };
+        onUpdateLog(sigPadTargetLogId, updatedData);
+      }
+      setSigPadTargetLogId(null);
+    } else {
+      // 2. Signature within the new/edit form modal
+      setFormData(prev => ({
+        ...prev,
+        supervisorSignature: signatureDataUrl
+      }));
+    }
+    setIsSigPadOpen(false);
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -88,7 +118,7 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
       {/* Main List Modal Panel */}
       <div className="glass-panel" style={{
         width: '100%',
-        maxWidth: '950px',
+        maxWidth: '980px',
         height: '85vh',
         maxHeight: '90vh',
         background: '#ffffff', // Pure white background matching light theme
@@ -229,6 +259,72 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                         {fields.map(f => {
                           const val = log.data?.[f.name] || '';
                           
+                          // Handle supervisorName column specially to show signature status
+                          if (f.name === 'supervisorName') {
+                            const hasSig = !!log.data?.supervisorSignature;
+                            return (
+                              <td key={f.name} style={{ padding: '14px 16px', color: '#1e293b', maxWidth: '240px' }}>
+                                <div style={{ fontWeight: 600 }}>{val || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>-</span>}</div>
+                                {val && (
+                                  <div style={{ marginTop: '6px' }}>
+                                    {hasSig ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--green)', fontSize: '0.75rem', fontWeight: 600 }}>
+                                          <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)' }}></span>
+                                          เซ็นแล้ว
+                                        </div>
+                                        <div style={{ 
+                                          height: '32px', 
+                                          display: 'flex', 
+                                          alignItems: 'center', 
+                                          background: 'rgba(255,255,255,0.85)', 
+                                          border: '1px solid rgba(0, 102, 204, 0.1)', 
+                                          borderRadius: '4px', 
+                                          padding: '2px 4px', 
+                                          width: 'fit-content' 
+                                        }}>
+                                          <img src={log.data.supervisorSignature} alt="signature" style={{ height: '26px', display: 'block' }} />
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={() => {
+                                          setSigPadTargetLogId(log.id);
+                                          setIsSigPadOpen(true);
+                                        }}
+                                        style={{
+                                          background: 'rgba(239, 68, 68, 0.04)',
+                                          border: '1px dashed rgba(239, 68, 68, 0.3)',
+                                          color: 'var(--red)',
+                                          padding: '4px 8px',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontSize: '0.7rem',
+                                          fontWeight: 600,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                          e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.04)';
+                                          e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                                        }}
+                                        title="ลงลายเซ็นสำหรับเคสนี้"
+                                      >
+                                        ✍️ ยังไม่เซ็น (คลิกเพื่อเซ็น)
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          }
+
                           // Display styling for special fields
                           let displayVal = val;
                           if (f.name === 'outcome' && (val.includes('triage') || val.includes('Triage'))) {
@@ -358,7 +454,7 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                 {editingLogId ? '✍️ แบบประเมิน / แก้ไขข้อมูลการบันทึก' : '📝 แบบบันทึกเคสการดูแลผู้ป่วยใหม่'}
               </h3>
               <button 
-                type="button"
+                type="button" 
                 onClick={handleCancelEdit}
                 style={{
                   background: 'none',
@@ -379,7 +475,7 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
               </button>
             </div>
 
-            {/* Form Modal Body (Scrollable if needed) */}
+            {/* Form Modal Body */}
             <div style={{ overflowY: 'auto', padding: '24px' }}>
               <form onSubmit={handleSubmit}>
                 <div style={{
@@ -454,6 +550,76 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                             }}
                           />
                         )}
+
+                        {/* If this is the supervisorName field, show signature pad trigger below it */}
+                        {field.name === 'supervisorName' && (
+                          <div style={{ 
+                            marginTop: '8px', 
+                            padding: '12px', 
+                            background: 'rgba(0,102,204,0.02)', 
+                            border: '1px dashed rgba(0,102,204,0.12)', 
+                            borderRadius: 'var(--radius-sm)' 
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>ลายเซ็นดิจิทัลผู้ประเมิน:</span>
+                              {formData.supervisorSignature ? (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--green)', fontWeight: 600 }}>✓ ลงชื่อแล้ว</span>
+                              ) : (
+                                <span style={{ fontSize: '0.75rem', color: 'var(--red)', fontWeight: 600 }}>ยังไม่ได้เซ็น</span>
+                              )}
+                            </div>
+                            
+                            {formData.supervisorSignature ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
+                                <div style={{ 
+                                  background: '#ffffff', 
+                                  border: '1px solid var(--border-light)', 
+                                  borderRadius: '4px', 
+                                  padding: '4px', 
+                                  height: '42px', 
+                                  display: 'flex', 
+                                  alignItems: 'center' 
+                                }}>
+                                  <img src={formData.supervisorSignature} alt="Signature Preview" style={{ height: '34px', display: 'block' }} />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSigPadTargetLogId(null);
+                                    setIsSigPadOpen(true);
+                                  }}
+                                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                                >
+                                  เขียนใหม่
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSigPadTargetLogId(null);
+                                  setIsSigPadOpen(true);
+                                }}
+                                className="btn-secondary"
+                                style={{
+                                  marginTop: '8px',
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  fontSize: '0.8rem',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '6px',
+                                  background: '#ffffff',
+                                  border: '1px solid rgba(0, 102, 204, 0.25)',
+                                  color: 'var(--primary)'
+                                }}
+                              >
+                                ✍️ ลงลายเซ็นดิจิทัลคุมเคสนี้
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -491,6 +657,17 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
           </div>
         </div>
       )}
+
+      {/* Signature Capture Modal overlay */}
+      <SignaturePad
+        isOpen={isSigPadOpen}
+        onClose={() => {
+          setIsSigPadOpen(false);
+          setSigPadTargetLogId(null);
+        }}
+        onSave={handleSaveSignature}
+        title={sigPadTargetLogId ? "✍️ ลงลายเซ็นสำหรับเคสที่เลือก" : "✍️ ลงลายเซ็นผู้นิเทศคุมฝึกปฏิบัติ"}
+      />
     </div>
   );
 };
