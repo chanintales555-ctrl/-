@@ -273,17 +273,56 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                                           <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)' }}></span>
                                           เซ็นแล้ว
                                         </div>
-                                        <div style={{ 
-                                          height: '32px', 
-                                          display: 'flex', 
-                                          alignItems: 'center', 
-                                          background: 'rgba(255,255,255,0.85)', 
-                                          border: '1px solid rgba(0, 102, 204, 0.1)', 
-                                          borderRadius: '4px', 
-                                          padding: '2px 4px', 
-                                          width: 'fit-content' 
-                                        }}>
-                                          <img src={log.data.supervisorSignature} alt="signature" style={{ height: '26px', display: 'block' }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                          <div style={{ 
+                                            height: '32px', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            background: 'rgba(255,255,255,0.85)', 
+                                            border: '1px solid rgba(0, 102, 204, 0.1)', 
+                                            borderRadius: '4px', 
+                                            padding: '2px 4px', 
+                                            width: 'fit-content' 
+                                          }}>
+                                            <img src={log.data.supervisorSignature} alt="signature" style={{ height: '26px', display: 'block' }} />
+                                          </div>
+                                          
+                                          <button
+                                            onClick={() => {
+                                              if (window.confirm("คุณต้องการลบลายเซ็นคุมเคสของอาจารย์ในเคสนี้ใช่หรือไม่?")) {
+                                                const targetLog = logs.find(l => l.id === log.id);
+                                                if (targetLog) {
+                                                  onUpdateLog(log.id, {
+                                                    ...targetLog.data,
+                                                    supervisorSignature: ''
+                                                  });
+                                                }
+                                              }
+                                            }}
+                                            style={{
+                                              background: 'none',
+                                              border: 'none',
+                                              color: 'var(--text-muted)',
+                                              cursor: 'pointer',
+                                              padding: '4px',
+                                              borderRadius: '4px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                                              e.currentTarget.style.color = 'var(--red)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.background = 'none';
+                                              e.currentTarget.style.color = 'var(--text-muted)';
+                                            }}
+                                            title="ลบลายเซ็นเคสนี้"
+                                          >
+                                            <Trash2 size={13} />
+                                          </button>
                                         </div>
                                       </div>
                                     ) : (
@@ -582,16 +621,27 @@ const LogModal = ({ subtopic, logs, onSaveLog, onUpdateLog, onDeleteLog, onClose
                                 }}>
                                   <img src={formData.supervisorSignature} alt="Signature Preview" style={{ height: '34px', display: 'block' }} />
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSigPadTargetLogId(null);
-                                    setIsSigPadOpen(true);
-                                  }}
-                                  style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                                >
-                                  เขียนใหม่
-                                </button>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSigPadTargetLogId(null);
+                                      setIsSigPadOpen(true);
+                                    }}
+                                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                                  >
+                                    เขียนใหม่
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData(prev => ({ ...prev, supervisorSignature: '' }));
+                                    }}
+                                    style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                                  >
+                                    ลบลายเซ็น
+                                  </button>
+                                </div>
                               </div>
                             ) : (
                               <button

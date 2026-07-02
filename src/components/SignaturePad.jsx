@@ -8,11 +8,18 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
 
   useEffect(() => {
     if (isOpen) {
-      // Small delay to ensure canvas element is mounted and styled
+      // Small delay to ensure modal is fully rendered before setting up canvas
       const timer = setTimeout(() => {
         setupCanvas();
-      }, 100);
-      return () => clearTimeout(timer);
+      }, 150);
+
+      // Handle screen resize or rotation automatically
+      window.addEventListener('resize', setupCanvas);
+      
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('resize', setupCanvas);
+      };
     }
   }, [isOpen]);
 
@@ -20,27 +27,32 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Support high DPI screens
+    // Reset dimensions to let flexbox container guide the bounding rect
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+    
+    // Set internal buffer size
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
     
-    // Set drawing styles
+    // Restore drawing styles
     ctx.strokeStyle = '#0052cc'; // Professional navy/blue pen color
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 3.0; // Slightly thicker for larger screens
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     
-    // Clear canvas with transparent background
+    // Clear canvas
     ctx.clearRect(0, 0, rect.width, rect.height);
     setHasDrawn(false);
   };
 
-  // Helper to get correct coordinates for drawing
+  // Helper to get coordinates for touch and mouse
   const getCoordinates = (e) => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -62,9 +74,7 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
     };
   };
 
-  // Drawing event handlers
   const startDrawing = (e) => {
-    // Prevent scrolling on touch screens
     if (e.cancelable) e.preventDefault();
     
     const coords = getCoordinates(e);
@@ -136,24 +146,35 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      zIndex: 300, // Higher than form modal
-      padding: '20px'
+      zIndex: 300,
+      padding: '10px',
+      boxSizing: 'border-box'
     }}>
+      {/* Fullscreen Adaptive Panel */}
       <div className="glass-panel" style={{
-        width: '100%',
-        maxWidth: '780px', // Enlarged for easier signature entry
+        width: '96vw',
+        height: '92vh',
+        maxWidth: '1000px', // Caps size on large desktop screens
+        maxHeight: '94vh',
         background: '#ffffff',
         border: '1px solid var(--border-light)',
         borderRadius: 'var(--radius-lg)',
-        boxShadow: '0 25px 60px rgba(0, 50, 150, 0.2)',
-        padding: '24px',
+        boxShadow: '0 25px 60px rgba(0, 50, 150, 0.25)',
+        padding: '20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px'
+        gap: '12px',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h4>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div>
+            <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>{title}</h4>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', marginBottom: 0 }}>
+              กรุณาเขียนเซ็นชื่อภายในกรอบประเส้นสีฟ้าด้านล่างนี้ (หากหน้าจอยังไม่เป็นแนวนอน สามารถหมุนอุปกรณ์เป็นแนวนอนเพื่อพื้นที่เขียนที่กว้างขึ้นได้ครับ)
+            </p>
+          </div>
           <button 
             type="button" 
             onClick={onClose}
@@ -162,29 +183,28 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
               border: 'none',
               color: 'var(--text-muted)',
               cursor: 'pointer',
-              padding: '4px',
-              borderRadius: '50%'
+              padding: '6px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
-        {/* Info label */}
-        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '-8px' }}>
-          กรุณาใช้นิ้วหรือปากกาสไตลัสเขียนเซ็นชื่อภายในกรอบสีส้มด้านล่างนี้
-        </p>
-
-        {/* Canvas Area */}
+        {/* Dynamic Canvas Container (using flex: 1 to auto-stretch portrait/landscape) */}
         <div style={{
-          border: '2px dashed rgba(0, 102, 204, 0.25)',
+          border: '2px dashed rgba(0, 102, 204, 0.3)',
           borderRadius: 'var(--radius-md)',
           background: '#fafbfd',
           position: 'relative',
-          height: '340px', // Taller canvas for better stylus control
+          flex: 1, // Fills all remaining space in the viewport height
           width: '100%',
           overflow: 'hidden',
-          touchAction: 'none' // Disable pull-to-refresh and scroll gestures on touch area
+          touchAction: 'none',
+          boxSizing: 'border-box'
         }}>
           <canvas
             ref={canvasRef}
@@ -208,33 +228,35 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%)',
-              color: 'rgba(0, 102, 204, 0.25)',
-              fontSize: '0.85rem',
+              color: 'rgba(0, 102, 204, 0.2)',
+              fontSize: '1rem',
               fontWeight: 500,
               pointerEvents: 'none',
-              userSelect: 'none'
+              userSelect: 'none',
+              textAlign: 'center'
             }}>
-              พื้นที่ลงชื่อประเมิน
+              ✍️ พื้นที่ลงชื่อประเมิน
             </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '4px' }}>
+        {/* Action Controls */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexShrink: 0, marginTop: '4px' }}>
           <button
             type="button"
             onClick={clearCanvas}
             className="btn-secondary"
             style={{
-              padding: '8px 16px',
-              fontSize: '0.8rem',
+              padding: '10px 20px',
+              fontSize: '0.85rem',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              border: '1px solid var(--border-light)'
+              border: '1px solid var(--border-light)',
+              background: '#f8fafc'
             }}
           >
-            <Eraser size={14} /> ล้างหน้าจอ
+            <Eraser size={15} /> ล้างหน้าจอ
           </button>
           
           <button
@@ -242,14 +264,14 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
             onClick={handleSave}
             className="btn-primary"
             style={{
-              padding: '8px 20px',
-              fontSize: '0.8rem',
+              padding: '10px 24px',
+              fontSize: '0.85rem',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px'
             }}
           >
-            <Check size={14} /> บันทึกลายเซ็น
+            <Check size={15} /> บันทึกลายเซ็น
           </button>
         </div>
       </div>
