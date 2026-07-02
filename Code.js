@@ -178,8 +178,7 @@ function importFirestoreLogs() {
   const debugLogs = [];
   function addLog(msg) {
     debugLogs.push(msg);
-    debugSheet.getRange(2, 1, debugLogs.length, 1).setValues(debugLogs.map(l => [l]));
-    SpreadsheetApp.flush();
+    Logger.log(msg);
   }
   
   addLog("เริ่มการเชื่อมต่อและดึงข้อมูลจาก Firestore...");
@@ -426,10 +425,19 @@ function importFirestoreLogs() {
     }
     
     addLog("=== การซิงก์ข้อมูลเสร็จสมบูรณ์เรียบร้อย ===");
+    
+    // เขียนบันทึก DebugLogs ทั้งหมดลงในชีตทีเดียว เพื่อความรวดเร็วสูงสุด (ไม่เสียเวลาเขียนทีละบรรทัดและลดการรีเฟรชหน้าจอ)
+    if (debugLogs.length > 0) {
+      debugSheet.getRange(2, 1, debugLogs.length, 1).setValues(debugLogs.map(l => [l]));
+    }
+    
     Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น! จัดกลุ่มแยกรายชื่อชีตส่วนตัวนักศึกษาพร้อมแทรกลายเซ็นและลบข้อมูลล่าสุดเรียบร้อยครับ");
     
   } catch(e) {
     addLog("เกิดข้อผิดพลาดร้ายแรง: " + e.toString());
+    if (debugLogs.length > 0) {
+      debugSheet.getRange(2, 1, debugLogs.length, 1).setValues(debugLogs.map(l => [l]));
+    }
     Browser.msgBox("❌ เกิดข้อผิดพลาดในการดึงข้อมูล: " + e.toString());
   }
 }
