@@ -412,10 +412,12 @@ function importFirestoreLogs() {
         userSheet.getRange(4, 8, rows.length, 1).setHorizontalAlignment("center"); // ลายเซ็น
       }
       
-      // ออโต้ขยายคอลัมน์อัตโนมัติ
-      for (let col = 1; col <= headers.length; col++) {
+      // ออโต้ขยายคอลัมน์อัตโนมัติ (คอลัมน์ที่ 1 ถึง 7)
+      for (let col = 1; col < headers.length; col++) {
         userSheet.autoResizeColumn(col);
       }
+      // ตั้งความกว้างคอลัมน์ที่ 8 (ลายเซ็นผู้นิเทศ) ให้กว้างคงที่ 110px เสมอ เพื่อป้องกันคอลัมน์ยุบจนมองไม่เห็นภาพลายเซ็น
+      userSheet.setColumnWidth(8, 110);
     });
     
     // ลบหน้าชีตว่างเริ่มต้น (Sheet1 หรือ ชีต1) ออกเพื่อความเป็นระเบียบ
@@ -430,6 +432,8 @@ function importFirestoreLogs() {
     if (debugLogs.length > 0) {
       debugSheet.getRange(2, 1, debugLogs.length, 1).setValues(debugLogs.map(l => [l]));
     }
+    
+    SpreadsheetApp.flush(); // ยืนยันการวาดลายเซ็นและข้อมูลทั้งหมดก่อนแจ้งเตือนสำเร็จ
     
     Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น! จัดกลุ่มแยกรายชื่อชีตส่วนตัวนักศึกษาพร้อมแทรกลายเซ็นและลบข้อมูลล่าสุดเรียบร้อยครับ");
     
