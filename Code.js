@@ -167,8 +167,8 @@ function onOpen() {
 function importFirestoreLogs() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 1. ดึงข้อมูลรายชื่อและแหล่งฝึกของนักศึกษาจาก Firestore (users collection) พร้อมเลี่ยงแคช (Cache Busting)
-  const usersUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?pageSize=1000&nocache=` + new Date().getTime();
+  // 1. ดึงข้อมูลรายชื่อและแหล่งฝึกของนักศึกษาจาก Firestore (users collection) พร้อมตั้งค่าเลี่ยงแคชผ่าน Header
+  const usersUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?pageSize=1000`;
   const userProfiles = {};
   
   const fetchOptions = {
@@ -200,8 +200,8 @@ function importFirestoreLogs() {
     Logger.log("Failed to fetch user profiles: " + e.toString());
   }
 
-  // 2. ดึงข้อมูลบันทึกหัตถการ/เคสทั้งหมดจาก Firestore (logs collection) พร้อมเลี่ยงแคช (Cache Busting)
-  const logsUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000&nocache=` + new Date().getTime();
+  // 2. ดึงข้อมูลบันทึกหัตถการ/เคสทั้งหมดจาก Firestore (logs collection) พร้อมตั้งค่าเลี่ยงแคชผ่าน Header
+  const logsUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000`;
   
   try {
     const response = UrlFetchApp.fetch(logsUrl, fetchOptions);
