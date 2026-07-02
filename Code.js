@@ -167,12 +167,21 @@ function onOpen() {
 function importFirestoreLogs() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 1. ดึงข้อมูลรายชื่อและแหล่งฝึกของนักศึกษาจาก Firestore (users collection)
-  const usersUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?pageSize=1000`;
+  // 1. ดึงข้อมูลรายชื่อและแหล่งฝึกของนักศึกษาจาก Firestore (users collection) พร้อมเลี่ยงแคช (Cache Busting)
+  const usersUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?pageSize=1000&nocache=` + new Date().getTime();
   const userProfiles = {};
   
+  const fetchOptions = {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    },
+    muteHttpExceptions: true
+  };
+  
   try {
-    const usersResponse = UrlFetchApp.fetch(usersUrl, { muteHttpExceptions: true });
+    const usersResponse = UrlFetchApp.fetch(usersUrl, fetchOptions);
     if (usersResponse.getResponseCode() === 200) {
       const usersJson = JSON.parse(usersResponse.getContentText());
       if (usersJson.documents) {
@@ -191,11 +200,11 @@ function importFirestoreLogs() {
     Logger.log("Failed to fetch user profiles: " + e.toString());
   }
 
-  // 2. ดึงข้อมูลบันทึกหัตถการ/เคสทั้งหมดจาก Firestore (logs collection)
-  const logsUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000`;
+  // 2. ดึงข้อมูลบันทึกหัตถการ/เคสทั้งหมดจาก Firestore (logs collection) พร้อมเลี่ยงแคช (Cache Busting)
+  const logsUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000&nocache=` + new Date().getTime();
   
   try {
-    const response = UrlFetchApp.fetch(logsUrl, { muteHttpExceptions: true });
+    const response = UrlFetchApp.fetch(logsUrl, fetchOptions);
     const responseCode = response.getResponseCode();
     
     if (responseCode !== 200) {
@@ -336,7 +345,8 @@ function importFirestoreLogs() {
             try {
               const base64Data = supervisorSignature.split(",")[1];
               const decoded = Utilities.base64Decode(base64Data);
-              const blob = Utilities.newBlob(decoded, 'image/png', 'sig_' + doc.id);
+              const docId = doc.name ? doc.name.split("/").pop() : "unknown_" + idx;
+              const blob = Utilities.newBlob(decoded, 'image/png', 'sig_' + docId);
               
               // แทรกภาพลอยตัวเหนือกึ่งกลางเซลล์คอลัมน์ที่ 8 (คอลัมน์ H)
               const img = userSheet.insertImage(blob, 8, rowNum);
@@ -347,7 +357,8 @@ function importFirestoreLogs() {
               // ขยับรูปเล็กน้อยเพื่อให้วางกึ่งกลางพอดี (Offset 10px จากขอบซ้าย และ 5px จากขอบบน)
               img.setAnchorCellXOffset(10).setAnchorCellYOffset(5);
             } catch(err) {
-              Logger.log("Failed to insert signature image for doc " + doc.id + ": " + err.toString());
+              const docId = doc.name ? doc.name.split("/").pop() : "unknown_" + idx;
+              Logger.log("Failed to insert signature image for doc " + docId + ": " + err.toString());
             }
           }
         });
