@@ -167,6 +167,23 @@ function onOpen() {
 function importFirestoreLogs() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   
+  // สร้าง/ดึงชีต DebugLogs
+  let debugSheet = ss.getSheetByName("DebugLogs");
+  if (!debugSheet) {
+    debugSheet = ss.insertSheet("DebugLogs");
+  }
+  debugSheet.clear();
+  debugSheet.getRange(1, 1).setValue("=== LOGS START: " + new Date().toString() + " ===");
+  
+  const debugLogs = [];
+  function addLog(msg) {
+    debugLogs.push(msg);
+    debugSheet.getRange(2, 1, debugLogs.length, 1).setValues(debugLogs.map(l => [l]));
+    SpreadsheetApp.flush();
+  }
+  
+  addLog("เริ่มการเชื่อมต่อและดึงข้อมูลจาก Firestore...");
+  
   // 1. ดึงข้อมูลรายชื่อและแหล่งฝึกของนักศึกษาจาก Firestore (users collection) พร้อมตั้งค่าเลี่ยงแคชผ่าน Header
   const usersUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/users?pageSize=1000`;
   const userProfiles = {};
@@ -181,6 +198,7 @@ function importFirestoreLogs() {
   };
   
   try {
+    addLog("กำลังดึงโปรไฟล์ผู้ใช้งาน (users)...");
     const usersResponse = UrlFetchApp.fetch(usersUrl, fetchOptions);
     if (usersResponse.getResponseCode() === 200) {
       const usersJson = JSON.parse(usersResponse.getContentText());
@@ -194,26 +212,32 @@ function importFirestoreLogs() {
             userProfiles[uid] = { venue1, venue2 };
           }
         });
+        addLog(`ดึงโปรไฟล์สำเร็จ: พบผู้ใช้งาน ${Object.keys(userProfiles).length} คน`);
       }
+    } else {
+      addLog("ดึงโปรไฟล์ล้มเหลว: " + usersResponse.getContentText());
     }
   } catch (e) {
-    Logger.log("Failed to fetch user profiles: " + e.toString());
+    addLog("เกิดข้อผิดพลาดขณะดึงโปรไฟล์: " + e.toString());
   }
 
   // 2. ดึงข้อมูลบันทึกหัตถการ/เคสทั้งหมดจาก Firestore (logs collection) พร้อมตั้งค่าเลี่ยงแคชผ่าน Header
   const logsUrl = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/logs?pageSize=1000`;
   
   try {
+    addLog("กำลังดึงรายการเคสบันทึก (logs)...");
     const response = UrlFetchApp.fetch(logsUrl, fetchOptions);
     const responseCode = response.getResponseCode();
     
     if (responseCode !== 200) {
+      addLog("ดึงรายการเคสล้มเหลว: " + response.getContentText());
       Browser.msgBox("❌ เกิดข้อผิดพลาดจาก Firebase: " + response.getContentText());
       return;
     }
     
     const json = JSON.parse(response.getContentText());
     const documents = json.documents || [];
+    addLog(`ดึงเคสสำเร็จ: พบเคสทั้งหมดบนฐานข้อมูล ${documents.length} เคส`);
     
     // จัดกลุ่มข้อมูล logs ตามรายชื่อนักศึกษา (userId)
     const logsByUser = {};
@@ -253,10 +277,18 @@ function importFirestoreLogs() {
       const firstName = student.fullName.replace("นางสาว", "").replace("นาง", "").replace("นาย", "").split(" ")[0].trim();
       const sheetName = `${formattedId} - ${firstName}`;
       
+      const userLogs = logsByUser[uid] || [];
+      if (userLogs.length === 0) {
+        return; // ข้ามถ้านักศึกษาคนนี้ยังไม่มีเคสเลย
+      }
+      
+      addLog(`กำลังสร้าง/อัปเดตแผ่นงานสำหรับ: ${sheetName} (จำนวนเคส: ${userLogs.length} เคส)`);
+      
       // ค้นหาชีตเดิม ถ้าไม่มีให้สร้างใหม่
       let userSheet = ss.getSheetByName(sheetName);
       if (!userSheet) {
         userSheet = ss.insertSheet(sheetName);
+        addLog(`  -> สร้างชีตใหม่: ${sheetName}`);
       }
       
       // ล้างข้อมูลหน้าเดิมออกทั้งหมด (รองรับการทำข้อมูลให้เป็นปัจจุบันเมื่อมีการลบเคส)
@@ -264,6 +296,7 @@ function importFirestoreLogs() {
       
       // ลบลายเซ็นภาพเดิมทั้งหมดที่เคยลอยอยู่ในชีตนี้ออกด้วย ป้องกันลายเซ็นซ้อนทับกัน
       const oldImages = userSheet.getImages();
+      addLog(`  -> ลบลายเซ็นภาพเก่าลอยตัวออก: ${oldImages.length} ภาพ`);
       for (var i = 0; i < oldImages.length; i++) {
         oldImages[i].remove();
       }
@@ -281,7 +314,6 @@ function importFirestoreLogs() {
       userSheet.getRange(3, 1, 1, headers.length).setValues([headers]);
       
       // ดึงเคสของคนๆ นี้มาใส่ในตาราง
-      const userLogs = logsByUser[uid] || [];
       const rows = [];
       
       userLogs.forEach(doc => {
@@ -292,11 +324,7 @@ function importFirestoreLogs() {
         const dataMap = fields.data && fields.data.mapValue ? fields.data.mapValue.fields : {};
         const patientName = dataMap.patientName ? dataMap.patientName.stringValue : "";
         const age = dataMap.age ? dataMap.age.stringValue : "";
-        
-        // แผนผังแมปชื่อฟิลด์ให้ตรงตามแต่ละฟอร์มของ React
         const symptoms = dataMap.symptoms ? dataMap.symptoms.stringValue : "";
-        
-        // รวมฟิลด์รายละเอียดตามประเภทหัวข้อ (TriageReason หรือ Management)
         const details = (dataMap.management ? dataMap.management.stringValue : "") || 
                         (dataMap.triageReason ? dataMap.triageReason.stringValue : "");
                         
@@ -311,7 +339,6 @@ function importFirestoreLogs() {
           } catch(e) {}
         }
         
-        // นำรายละเอียดมาประมวลผลต่อท้ายผลลัพธ์
         const outcomeDetail = details ? (details + " \n➔ " + outcome) : outcome;
         
         rows.push([
@@ -329,6 +356,7 @@ function importFirestoreLogs() {
       // เขียนตารางแบบกลุ่มลงชีต
       if (rows.length > 0) {
         userSheet.getRange(4, 1, rows.length, headers.length).setValues(rows);
+        addLog(`  -> เขียนแถวข้อมูลลงชีตเรียบร้อย: ${rows.length} แถว`);
         
         // วนลูปเพื่อวาดรูปลายเซ็นลอยในเซลล์คอลัมน์ H (คอลัมน์ที่ 8)
         userLogs.forEach((doc, idx) => {
@@ -342,10 +370,11 @@ function importFirestoreLogs() {
           userSheet.setRowHeight(rowNum, 40);
           
           if (supervisorSignature && supervisorSignature.indexOf("data:image/png;base64,") === 0) {
+            const docId = doc.name ? doc.name.split("/").pop() : "unknown_" + idx;
+            addLog(`  -> กำลังประมวลผลลายเซ็นของเคสที่ ${idx + 1} (Doc: ${docId})`);
             try {
               const base64Data = supervisorSignature.split(",")[1];
               const decoded = Utilities.base64Decode(base64Data);
-              const docId = doc.name ? doc.name.split("/").pop() : "unknown_" + idx;
               const blob = Utilities.newBlob(decoded, 'image/png', 'sig_' + docId);
               
               // แทรกภาพลอยตัวเหนือกึ่งกลางเซลล์คอลัมน์ที่ 8 (คอลัมน์ H)
@@ -356,9 +385,9 @@ function importFirestoreLogs() {
               
               // ขยับรูปเล็กน้อยเพื่อให้วางกึ่งกลางพอดี (Offset 10px จากขอบซ้าย และ 5px จากขอบบน)
               img.setAnchorCellXOffset(10).setAnchorCellYOffset(5);
+              addLog(`     [สำเร็จ] แทรกรูปภาพลายเซ็นลงแถวที่ ${rowNum} สำเร็จ`);
             } catch(err) {
-              const docId = doc.name ? doc.name.split("/").pop() : "unknown_" + idx;
-              Logger.log("Failed to insert signature image for doc " + docId + ": " + err.toString());
+              addLog(`     [ล้มเหลว] เกิดข้อผิดพลาดกับภาพแถวที่ ${rowNum}: ${err.toString()}`);
             }
           }
         });
@@ -396,9 +425,11 @@ function importFirestoreLogs() {
       ss.deleteSheet(defaultSheet);
     }
     
+    addLog("=== การซิงก์ข้อมูลเสร็จสมบูรณ์เรียบร้อย ===");
     Browser.msgBox("🔄 อัปเดตข้อมูลสำเร็จเสร็จสิ้น! จัดกลุ่มแยกรายชื่อชีตส่วนตัวนักศึกษาพร้อมแทรกลายเซ็นและลบข้อมูลล่าสุดเรียบร้อยครับ");
     
   } catch(e) {
+    addLog("เกิดข้อผิดพลาดร้ายแรง: " + e.toString());
     Browser.msgBox("❌ เกิดข้อผิดพลาดในการดึงข้อมูล: " + e.toString());
   }
 }
