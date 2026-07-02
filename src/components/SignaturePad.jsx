@@ -141,7 +141,7 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
     }}>
       <div className="glass-panel" style={{
         width: '100%',
-        maxWidth: '460px',
+        maxWidth: '780px', // Enlarged for easier signature entry
         background: '#ffffff',
         border: '1px solid var(--border-light)',
         borderRadius: 'var(--radius-lg)',
@@ -181,7 +181,7 @@ const SignaturePad = ({ isOpen, onClose, onSave, title = "✍️ ลงลาย
           borderRadius: 'var(--radius-md)',
           background: '#fafbfd',
           position: 'relative',
-          height: '180px',
+          height: '340px', // Taller canvas for better stylus control
           width: '100%',
           overflow: 'hidden',
           touchAction: 'none' // Disable pull-to-refresh and scroll gestures on touch area
